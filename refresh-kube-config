@@ -1,0 +1,8 @@
+#!/bin/bash
+
+master_node="${1:-elendil}"
+
+ssh $master_node 'mkdir -p .kube; sudo cp /etc/rancher/k3s/k3s.yaml /home/gerry/.kube/config; sudo chown gerry:gerry .kube/config; sudo chmod 600 .kube/config;'
+scp $master_node:.kube/config ~/.kube/config
+yq -i '.clusters[0].cluster.server = "https://theoden:6443"|.clusters[0].name = "middle-earth"|.contexts[0].name = "middle-earth"|.contexts[0].context.cluster = "middle-earth"|.current-context = "middle-earth"' ~/.kube/config
+cp ~/.kube/config /c/Users/gerry/.kube/

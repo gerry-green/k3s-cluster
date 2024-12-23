@@ -1,0 +1,13 @@
+#!/bin/bash
+
+master_node="theoden"
+# note eomer is last because it runs pi-hole so DNS goes away when it reboots
+agent_nodes=("frodo" "samwise" "meriadoc" "peregrin" "theodred" "eowyn" "eomer")
+
+echo $master_node:
+ssh $master_node 'if [ -e /usr/local/bin/k3s-uninstall.sh ]; then sudo /usr/local/bin/k3s-uninstall.sh; sudo reboot; else echo "no k3s uninstall"; fi'
+
+for node in "${agent_nodes[@]}"; do
+    echo $node:
+    ssh $node 'if [ -e /usr/local/bin/k3s-agent-uninstall.sh ]; then sudo /usr/local/bin/k3s-agent-uninstall.sh; sudo reboot; else echo "no k3s uninstall"; fi'
+done

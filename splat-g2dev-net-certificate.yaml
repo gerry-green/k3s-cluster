@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: splat-g2dev-net-certificate
+  namespace: ingress-nginx
+spec:
+  secretName: splat-g2dev-net-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  commonName: "*.g2dev.net"
+  dnsNames:
+  - "*.g2dev.net"
