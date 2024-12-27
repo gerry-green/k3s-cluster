@@ -1,0 +1,18 @@
+write-kubeconfig-mode: 644
+
+node-taint:
+  - node-role.kubernetes.io/control-plane=true:NoSchedule
+
+tls-san: 
+  - "middle-earth.g2dev.net"
+
+cluster-init: true
+
+disable:
+  - traefik
+  - servicelb
+  - local-storage
+
+flannel-backend: none 
+
+disable-network-policy: true
