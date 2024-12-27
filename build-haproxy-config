@@ -1,0 +1,30 @@
+#!/usr/bin/bash
+
+cp haproxy.cfg.template haproxy.cfg
+
+# find nodes running the ingress-nginx-controller and add them to the haproxy.cfg
+kubectl get -o json svc -n ingress-nginx ingress-nginx-controller | jq -r '.spec.ports[]|[.nodePort, .port]|@tsv' | \
+    while read node_port svc_port; do
+        server_list="       "
+        for node in $(kubectl get pod -o json -n ingress-nginx| jq -r '.items[]|.spec.nodeName'); do
+            ip=$(nslookup $node | grep Address | tail -1 | sed -E 's/Address: //')
+            server_list="${server_list}server $node $ip:$node_port check\n        "
+        done
+        [ $svc_port -eq 80 ] && sed -i "/HTTP_SERVERS_GO_HERE/a \ $server_list" haproxy.cfg
+        [ $svc_port -eq 443 ] && sed -i "/HTTPS_SERVERS_GO_HERE/a \ $server_list" haproxy.cfg
+    done
+
+# find the control-plane nodes and add them to the haproxy.cfg
+kubectl get node -l 'node-role.kubernetes.io/control-plane'='true' -o json | jq -r '.items[]|.metadata.name' | \
+    while read node; do
+        ip=$(nslookup $node | grep Address | tail -1 | sed -E 's/Address: //')
+        sed -i "/KUBE_SERVERS_GO_HERE/a \        server $node $ip:6443 check" haproxy.cfg
+    done
+
+# remove the placeholders and trailing whitespace
+sed -Ei '/SERVERS_GO_HERE/d;s/ *$//;' haproxy.cfg
+
+scp haproxy.cfg peregrin:
+ssh peregrin 'sudo mv haproxy.cfg /etc/haproxy/ && sudo systemctl restart haproxy'
+
+rm haproxy.cfg

@@ -2,45 +2,86 @@
 
 mkdir -p ~/.kube
 
-master_node="elendil"
-agent_nodes=("aragorn" "isildur" "faramir" "boromir")
+first_node="frodo"
+master_nodes=("samwise" "meriadoc")
+agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir")
 
-# install the master node first
+# install the initial master node
 # note that flannel-backend and disable-networkpolicy were added to support testing Cilium (2024-10-24)
-ssh $master_node 'curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL="latest" INSTALL_K3S_EXEC="--disable traefik --disable servicelb --disable local-storage --flannel-backend=none --disable-network-policy" sh -'
+ssh $first_node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='--cluster-init --tls-san "middle-earth.g2dev.net" --disable traefik --disable servicelb --disable local-storage --flannel-backend=none --disable-network-policy' sh -"
 
 # update our local kube config so we can modify the cluster
-ssh $master_node 'mkdir -p .kube; sudo cp /etc/rancher/k3s/k3s.yaml /home/gerry/.kube/config; sudo chown gerry:gerry .kube/config; sudo chmod 600 .kube/config;'
-scp $master_node:.kube/config ~/.kube/config
+ssh $first_node 'mkdir -p .kube; sudo cp /etc/rancher/k3s/k3s.yaml /home/gerry/.kube/config; sudo chown gerry:gerry .kube/config; sudo chmod 600 .kube/config;'
+scp $first_node:.kube/config ~/.kube/config
 # modify the kube config so it can be used on machines other than the master node
-yq -i '.clusters[0].cluster.server = "https://'$master_node':6443"|.clusters[0].name = "middle-earth"|.contexts[0].name = "middle-earth"|.contexts[0].context.cluster = "middle-earth"|.current-context = "middle-earth"' ~/.kube/config
-
-# copy back to the master node so other clients can grab latest with mods
-scp ~/.kube/config $master_node:.kube/
+yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].name = "middle-earth"|.contexts[0].name = "middle-earth"|.contexts[0].context.cluster = "middle-earth"|.current-context = "middle-earth"' ~/.kube/config
 
 # install cilium - requires the cilium CLI installed locally
+
+[ -x "$(command -v cilium)" ] || {
+    echo "cilium CLI not found - please install it"
+    exit 1
+}
 
 cilium install --version 1.16.4 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding - only coredns and metrics server will have started when the cluster is up. This is just a way to ensure it came up enough we can proceed.
+echo "$(date +"%Y-%m-%d %H:%M:%S"): Waiting for coredns to start"
 
-max_retries=10
+max_retries=20
 retry_count=0
 retry_interval=10
 while true; do
     [ "$(kubectl -n kube-system get po -l k8s-app=kube-dns -o json | jq -r '.items[]|.status.phase')" = "Running" ] && break
     retry_count=$(($retry_count + 1))
     [ $retry_count -gt $max_retries ] && {
-        echo "coredns is not running - stopping build";
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): coredns is not running - stopping build";
         exit 1;
     }
-    echo "coredns not running yet - waiting $retry_interval seconds"
+    echo "$(date +"%Y-%m-%d %H:%M:%S"): coredns not running yet - waiting $retry_interval seconds"
     sleep $retry_interval
 done
 
-echo "Cluster is up!"
+echo "$(date +"%Y-%m-%d %H:%M:%S"): Cluster is up!"
 
-# create the cert manager namespace early so we can pre-load the cloudflare secret
+# Install the remaining master nodes one at a time
+for node in "${master_nodes[@]}"; do
+    echo "$(date +"%Y-%m-%d %H:%M:%S"): installing master node $node"
+
+    ssh $node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='server --cluster-init --tls-san "middle-earth.g2dev.net" --disable traefik --disable servicelb --disable local-storage --flannel-backend=none --disable-network-policy' K3S_URL=https://$first_node:6443 K3S_TOKEN='$(ssh $first_node sudo cat /var/lib/rancher/k3s/server/node-token)' sh -"
+
+    max_retries=30
+    retry_count=0
+    retry_interval=15
+    while true; do
+        node_ready=$(kubectl get node $node -o json | jq -r '.status.conditions[]|select(.type|match("Ready")).status')
+        [ "$node_ready" = "True" ] && {
+            echo "node $node is ready"
+            break
+        }
+
+        retry_count=$(($retry_count + 1))
+        [ $retry_count -gt $max_retries ] && {
+            echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node did not start in time - stopping build";
+            exit 1;
+        }
+
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node not ready yet - waiting $retry_interval seconds"
+        sleep $retry_interval
+    done
+done
+
+# finish by installing the agent nodes
+for node in "${agent_nodes[@]}"; do
+    ./add-agent-node $first_node $node
+done
+
+# update the kube config to use the new domain name
+sed -i 's/frodo/middle-earth.g2dev.net/' ~/.kube/config
+# copy back to the first master node so other clients can grab latest with mods
+scp ~/.kube/config $first_node:.kube/
+
+# create the cert manager namespace early so we can pre-load the cloudflare secret (the other manifests will create their own namespaces)
 cat <<EOF | kubectl apply -f -
 apiVersion: v1
 kind: Namespace
@@ -50,16 +91,10 @@ EOF
 
 ./create-cloudflare-secret | kubectl apply -f -
 
-# move the manifests out to the master node to load
-ssh $master_node 'mkdir -p manifests'
-scp manifests/* $master_node:manifests/
-ssh $master_node sudo cp manifests/* /var/lib/rancher/k3s/server/manifests
+# move the manifests out to the first master node to load
+ssh $first_node 'mkdir -p manifests'
+scp manifests/* $first_node:manifests/
+ssh $first_node sudo cp manifests/* /var/lib/rancher/k3s/server/manifests
 
-# finish by installing the agent nodes
-for node in "${agent_nodes[@]}"; do
-    ssh $node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL="latest" K3S_URL=https://$master_node:6443 K3S_TOKEN='$(ssh $master_node sudo cat /var/lib/rancher/k3s/server/node-token)' sh -"
-done
-
-# prometheus, ingress-nginx, cert-manager and longhorn install along with the cluster
-
-# manual post install steps (for now - could be automated)
+#todo: add a check to ensure ingress-nginx is running before proceeding
+echo "$(date +"%Y-%m-%d %H:%M:%S"): Waiting for ingress-nginx to start"
