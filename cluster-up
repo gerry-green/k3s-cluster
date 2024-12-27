@@ -4,16 +4,17 @@ mkdir -p ~/.kube
 
 first_node="frodo"
 master_nodes=("samwise" "meriadoc")
-agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir")
+agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir" "cmdrcody")
 
-# install the initial master node
+# install the first master / control-plane node
 # note that flannel-backend and disable-networkpolicy were added to support testing Cilium (2024-10-24)
 ssh $first_node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='--cluster-init --tls-san "middle-earth.g2dev.net" --disable traefik --disable servicelb --disable local-storage --flannel-backend=none --disable-network-policy' sh -"
 
-# update our local kube config so we can modify the cluster
+# grab a local copy of the kube config from the first master node
 ssh $first_node 'mkdir -p .kube; sudo cp /etc/rancher/k3s/k3s.yaml /home/gerry/.kube/config; sudo chown gerry:gerry .kube/config; sudo chmod 600 .kube/config;'
 scp $first_node:.kube/config ~/.kube/config
 # modify the kube config so it can be used on machines other than the master node
+# this is pinned to the first master node until the remaining control plan nodes are live
 yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].name = "middle-earth"|.contexts[0].name = "middle-earth"|.contexts[0].context.cluster = "middle-earth"|.current-context = "middle-earth"' ~/.kube/config
 
 # install cilium - requires the cilium CLI installed locally
@@ -25,7 +26,7 @@ yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].n
 
 cilium install --version 1.16.4 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
-# check that coredns is running before proceeding - only coredns and metrics server will have started when the cluster is up. This is just a way to ensure it came up enough we can proceed.
+# check that coredns is running before proceeding to add the remaining control plane nodes
 echo "$(date +"%Y-%m-%d %H:%M:%S"): Waiting for coredns to start"
 
 max_retries=20
@@ -44,7 +45,7 @@ done
 
 echo "$(date +"%Y-%m-%d %H:%M:%S"): Cluster is up!"
 
-# Install the remaining master nodes one at a time
+# Install the remaining control-plane nodes one at a time
 for node in "${master_nodes[@]}"; do
     echo "$(date +"%Y-%m-%d %H:%M:%S"): installing master node $node"
 
@@ -76,7 +77,7 @@ for node in "${agent_nodes[@]}"; do
     ./add-agent-node $first_node $node
 done
 
-# update the kube config to use the new domain name
+# update the kube config to use the domain name now that all control plane nodes are up
 sed -i 's/frodo/middle-earth.g2dev.net/' ~/.kube/config
 # copy back to the first master node so other clients can grab latest with mods
 scp ~/.kube/config $first_node:.kube/
