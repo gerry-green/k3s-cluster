@@ -8,10 +8,7 @@ agent_nodes=("elendil" "aragorn" "isildur" "durin" "faramir" "boromir" "cmdrcody
 
 # install the first master / control-plane node
 
-scp control-plane-config.yaml $first_node:
-ssh $first_node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /etc/rancher/k3s/config.yaml'
-
-ssh $first_node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='server' sh -"
+./add-control-plane-node $first_node $first_node
 
 # grab a local copy of the kube config from the first master node
 ssh $first_node 'mkdir -p .kube; sudo cp /etc/rancher/k3s/k3s.yaml /home/gerry/.kube/config; sudo chown gerry:gerry .kube/config; sudo chmod 600 .kube/config;'
@@ -50,32 +47,10 @@ echo "$(date +"%Y-%m-%d %H:%M:%S"): Cluster is up!"
 
 # Install the remaining control-plane nodes one at a time
 for node in "${master_nodes[@]}"; do
-    echo "$(date +"%Y-%m-%d %H:%M:%S"): installing master node $node"
-
-    scp control-plane-config.yaml $node:
-    ssh $node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /etc/rancher/k3s/config.yaml'
-
-    ssh $node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='server' K3S_URL=https://$first_node:6443 K3S_TOKEN='$(ssh $first_node sudo cat /var/lib/rancher/k3s/server/node-token)' sh -"
-
-    max_retries=30
-    retry_count=0
-    retry_interval=15
-    while true; do
-        node_ready=$(kubectl get node $node -o json | jq -r '.status.conditions[]|select(.type|match("Ready")).status')
-        [ "$node_ready" = "True" ] && {
-            echo "node $node is ready"
-            break
-        }
-
-        retry_count=$(($retry_count + 1))
-        [ $retry_count -gt $max_retries ] && {
-            echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node did not start in time - stopping build";
-            exit 1;
-        }
-
-        echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node not ready yet - waiting $retry_interval seconds"
-        sleep $retry_interval
-    done
+    ./add-control-plane-node $first_node $node || {
+        echo "failed to install control plane node $node"
+        exit 1
+    }
 done
 
 # finish by installing the agent nodes
