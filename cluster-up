@@ -2,13 +2,16 @@
 
 mkdir -p ~/.kube
 
-first_node="frodo"
-master_nodes=("samwise" "meriadoc")
-agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir" "cmdrcody")
+first_node="hunter"
+master_nodes=("crosshair" "tech")
+agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir" "cmdrcody" "wrecker" "elrond")
 
 # install the first master / control-plane node
-# note that flannel-backend and disable-networkpolicy were added to support testing Cilium (2024-10-24)
-ssh $first_node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='--cluster-init --tls-san "middle-earth.g2dev.net" --disable traefik --disable servicelb --disable local-storage --flannel-backend=none --disable-network-policy' sh -"
+
+scp control-plane-config.yaml $first_node:
+ssh $first_node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /etc/rancher/k3s/config.yaml'
+
+ssh $first_node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='server' sh -"
 
 # grab a local copy of the kube config from the first master node
 ssh $first_node 'mkdir -p .kube; sudo cp /etc/rancher/k3s/k3s.yaml /home/gerry/.kube/config; sudo chown gerry:gerry .kube/config; sudo chmod 600 .kube/config;'
@@ -49,7 +52,10 @@ echo "$(date +"%Y-%m-%d %H:%M:%S"): Cluster is up!"
 for node in "${master_nodes[@]}"; do
     echo "$(date +"%Y-%m-%d %H:%M:%S"): installing master node $node"
 
-    ssh $node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='server --cluster-init --tls-san "middle-earth.g2dev.net" --disable traefik --disable servicelb --disable local-storage --flannel-backend=none --disable-network-policy' K3S_URL=https://$first_node:6443 K3S_TOKEN='$(ssh $first_node sudo cat /var/lib/rancher/k3s/server/node-token)' sh -"
+    scp control-plane-config.yaml $node:
+    ssh $node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /etc/rancher/k3s/config.yaml'
+
+    ssh $node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='server' K3S_URL=https://$first_node:6443 K3S_TOKEN='$(ssh $first_node sudo cat /var/lib/rancher/k3s/server/node-token)' sh -"
 
     max_retries=30
     retry_count=0
@@ -78,7 +84,8 @@ for node in "${agent_nodes[@]}"; do
 done
 
 # update the kube config to use the domain name now that all control plane nodes are up
-sed -i 's/frodo/middle-earth.g2dev.net/' ~/.kube/config
+# temporarily disabling this until cluster is stable and we can rebuild haproxy
+# sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
 # copy back to the first master node so other clients can grab latest with mods
 scp ~/.kube/config $first_node:.kube/
 

@@ -13,6 +13,6 @@ disable:
   - servicelb
   - local-storage
 
+# these options required by Cilium install:
 flannel-backend: none 
-
 disable-network-policy: true
