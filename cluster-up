@@ -3,8 +3,8 @@
 mkdir -p ~/.kube
 
 first_node="hunter"
-master_nodes=("crosshair" "tech")
-agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir" "cmdrcody" "wrecker" "elrond")
+master_nodes=("wrecker" "crosshair")
+agent_nodes=("elendil" "aragorn" "isildur" "durin" "faramir" "boromir" "cmdrcody" "tech")
 
 # install the first master / control-plane node
 

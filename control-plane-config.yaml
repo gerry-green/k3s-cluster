@@ -1,18 +1,21 @@
 write-kubeconfig-mode: 644
 
+# this prevents non control-plane workloads from running on the control-plane nodes
 node-taint:
   - node-role.kubernetes.io/control-plane=true:NoSchedule
 
 tls-san: 
   - "middle-earth.g2dev.net"
 
+# this creates nodes with embedded etcd
 cluster-init: true
 
+# these default k3s components are replaced by nginx, haproxy and longhorn
 disable:
   - traefik
   - servicelb
   - local-storage
 
-# these options required by Cilium install:
+# these options are required by Cilium install:
 flannel-backend: none 
 disable-network-policy: true
