@@ -14,7 +14,7 @@ agent_nodes=("elendil" "aragorn" "isildur" "durin" "faramir" "boromir" "cmdrcody
 ssh $first_node 'mkdir -p .kube; sudo cp /etc/rancher/k3s/k3s.yaml /home/gerry/.kube/config; sudo chown gerry:gerry .kube/config; sudo chmod 600 .kube/config;'
 scp $first_node:.kube/config ~/.kube/config
 # modify the kube config so it can be used on machines other than the master node
-# this is pinned to the first master node until the remaining control plan nodes are live
+# this is pinned to the first master node until the remaining control plane nodes are live
 yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].name = "middle-earth"|.contexts[0].name = "middle-earth"|.contexts[0].context.cluster = "middle-earth"|.current-context = "middle-earth"' ~/.kube/config
 
 # install cilium - requires the cilium CLI installed locally
@@ -51,6 +51,26 @@ for node in "${master_nodes[@]}"; do
         echo "failed to install control plane node $node"
         exit 1
     }
+
+    max_retries=30
+    retry_count=0
+    retry_interval=15
+    while true; do
+        node_ready=$(kubectl get node $node -o json | jq -r '.status.conditions[]|select(.type|match("Ready")).status')
+        [ "$node_ready" = "True" ] && {
+            echo "node $node is ready"
+            break
+        }
+
+        retry_count=$(($retry_count + 1))
+        [ $retry_count -gt $max_retries ] && {
+            echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node did not start in time - stopping build";
+            exit 1;
+        }
+
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node not ready yet - waiting $retry_interval seconds"
+        sleep $retry_interval
+    done
 done
 
 # finish by installing the agent nodes

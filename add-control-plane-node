@@ -13,23 +13,3 @@ ssh $node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /et
 }
 
 ssh $node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=latest INSTALL_K3S_EXEC='server' $cluster_detail sh -"
-
-max_retries=30
-retry_count=0
-retry_interval=15
-while true; do
-    node_ready=$(kubectl get node $node -o json | jq -r '.status.conditions[]|select(.type|match("Ready")).status')
-    [ "$node_ready" = "True" ] && {
-        echo "node $node is ready"
-        break
-    }
-
-    retry_count=$(($retry_count + 1))
-    [ $retry_count -gt $max_retries ] && {
-        echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node did not start in time - stopping build";
-        exit 1;
-    }
-
-    echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node not ready yet - waiting $retry_interval seconds"
-    sleep $retry_interval
-done
