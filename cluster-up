@@ -59,17 +59,17 @@ for node in "${master_nodes[@]}"; do
     while true; do
         node_ready=$(kubectl get node $node -o json | jq -r '.status.conditions[]|select(.type|match("Ready")).status')
         [ "$node_ready" = "True" ] && {
-            echo "node $node is ready"
+            echoci -c green -d "node $node is ready"
             break
         }
 
         retry_count=$(($retry_count + 1))
         [ $retry_count -gt $max_retries ] && {
-            echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node did not start in time - stopping build";
+            echoci -c red -d "node $node did not start in time - stopping build";
             exit 1;
         }
 
-        echo "$(date +"%Y-%m-%d %H:%M:%S"): node $node not ready yet - waiting $retry_interval seconds"
+        echoci -c blue -d "node $node not ready yet - waiting $retry_interval seconds"
         sleep $retry_interval
     done
 done
@@ -96,7 +96,7 @@ scp manifests/* $first_node:manifests/
 ssh $first_node sudo cp manifests/* /var/lib/rancher/k3s/server/manifests
 
 # wait for the ingress-nginx pods to start - this affirms that all workers are ready so we can continue with longhorn prep
-echo "$(date +"%Y-%m-%d %H:%M:%S"): Waiting for ingress-nginx to start"
+echoci -c blue -d "Waiting for ingress-nginx to start"
 
 max_retries=30
 retry_count=0
@@ -104,24 +104,19 @@ retry_interval=15
 while true; do
     ingress_ready_count=$(kubectl get po -n ingress-nginx -o json | jq -r '.items[]|.status.phase' | grep -c Running)
     [ "$ingress_ready_count" -eq ${#agent_nodes[@]} ] && {
-        echo "all ingress pods are ready"
+        echoci -c green -d "all ingress pods are ready"
         break
     }
 
     retry_count=$(($retry_count + 1))
     [ $retry_count -gt $max_retries ] && {
-        echo "$(date +"%Y-%m-%d %H:%M:%S"): full set of ingress pods did not start in time - stopping build";
+        echoci -c red -d "full set of ingress pods did not start in time - stopping build";
         exit 1;
     }
 
-    echo "$(date +"%Y-%m-%d %H:%M:%S"): $ingress_ready_count pods ready, expected ${#agent_nodes[@]} - waiting $retry_interval seconds"
+    echoci -c blue -d "$ingress_ready_count pods ready, expected ${#agent_nodes[@]} - waiting $retry_interval seconds"
     sleep $retry_interval
 done
-
-# update the kube config to use the domain name
-sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
-# copy back to the first master node so other clients can grab latest with mods
-scp ~/.kube/config $first_node:.kube/
 
 # rebuild the haproxy config to capture any IP address change on the new nodes
 ./build-haproxy-config
@@ -135,3 +130,9 @@ kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/depl
 
 # install the cloudnative-pg operator
 kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.2.yaml
+
+# update the kube config to use the domain name
+sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
+# copy back to the first master node so other clients can grab latest with mods
+scp ~/.kube/config $first_node:.kube/
+
