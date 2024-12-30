@@ -1,4 +1,5 @@
 #!/bin/bash
+source helpers
 
 mkdir -p ~/.kube
 
@@ -20,14 +21,14 @@ yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].n
 # install cilium - requires the cilium CLI installed locally
 
 [ -x "$(command -v cilium)" ] || {
-    echo "cilium CLI not found - please install it"
+    echoci -c red -d "cilium CLI not found - please install it"
     exit 1
 }
 
 cilium install --version 1.16.5 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding to add the remaining control plane nodes
-echo "$(date +"%Y-%m-%d %H:%M:%S"): Waiting for coredns to start"
+echoci -c blue -d "Waiting for coredns to start"
 
 max_retries=20
 retry_count=0
@@ -36,19 +37,19 @@ while true; do
     [ "$(kubectl -n kube-system get po -l k8s-app=kube-dns -o json | jq -r '.items[]|.status.phase')" = "Running" ] && break
     retry_count=$(($retry_count + 1))
     [ $retry_count -gt $max_retries ] && {
-        echo "$(date +"%Y-%m-%d %H:%M:%S"): coredns is not running - stopping build";
+        echoci -c red -d "coredns is not running - stopping build";
         exit 1;
     }
-    echo "$(date +"%Y-%m-%d %H:%M:%S"): coredns not running yet - waiting $retry_interval seconds"
+    echoci -c blue -d "coredns not running yet - waiting $retry_interval seconds"
     sleep $retry_interval
 done
 
-echo "$(date +"%Y-%m-%d %H:%M:%S"): Cluster is up!"
+echoci -c green -d "Cluster is up!"
 
 # Install the remaining control-plane nodes one at a time
 for node in "${master_nodes[@]}"; do
     ./add-control-plane-node $first_node $node || {
-        echo "failed to install control plane node $node"
+        echoci -c red -d "failed to install control plane node $node"
         exit 1
     }
 

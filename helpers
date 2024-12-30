@@ -12,10 +12,11 @@ function echoci() {
     local color="reset"
     local OPTIND
 
-    while getopts ":c:i:" opt; do
+    while getopts ":c:i:d" opt; do
         case $opt in
             c) color=${OPTARG} ;;
             i) ind=${OPTARG} ;;
+            d) datestamp="$(date +"%Y-%m-%d %H:%M:%S"): " ;;
             \?) echo "Invalid option: -${OPTARG}" >&2 ;;
         esac
     done
@@ -26,6 +27,7 @@ function echoci() {
 
     if [ -n "$text" ]; then
         [ $ind -gt 0 ] && text=$(sed "s/^/$(perl -e "print ' ' x $ind")/" <<< "$text")
+        [ -n "$datestamp" ] && text="${datestamp}${text}"
         [ -n "$text" ] && echo -e "${textColor[$color]}${text}${textColor[reset]}"
     fi
 }

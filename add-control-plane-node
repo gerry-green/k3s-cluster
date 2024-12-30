@@ -1,9 +1,10 @@
 #!/usr/bin/bash
+source helpers
 
 first_node=$1
 node=$2
 
-echo "$(date +"%Y-%m-%d %H:%M:%S"): installing master node $node"
+echoci -c blue -d "Installing master node $node"
 
 scp control-plane-config.yaml $node:
 ssh $node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /etc/rancher/k3s/config.yaml'

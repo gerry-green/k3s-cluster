@@ -1,5 +1,8 @@
 #!/usr/bin/bash
 
+source helpers
+echoci -c blue -d "Building haproxy config"
+
 cp haproxy.cfg.template haproxy.cfg
 
 # find nodes running the ingress-nginx-controller and add them to the haproxy.cfg

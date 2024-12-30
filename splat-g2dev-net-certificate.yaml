@@ -1,3 +1,6 @@
+# deploy this to the cluster to trigger the creation of a TLS certificate from Letsencrypt
+# this isn't part of the full build because we rebuild too often - we don't want to hit the rate limit
+# Once we have valid certificate we can save it and reuse till it expires
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
