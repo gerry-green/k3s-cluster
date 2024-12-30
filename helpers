@@ -1,0 +1,32 @@
+declare -gA textColor
+export textColor=(
+    [reset]='\033[0m'
+    [yellow]='\033[0;33m'
+    [blue]='\033[0;34m'
+    [red]='\033[0;31m'
+    [green]='\033[0;92m'
+)
+
+function echoci() {
+    local ind=${indent:-0}
+    local color="reset"
+    local OPTIND
+
+    while getopts ":c:i:" opt; do
+        case $opt in
+            c) color=${OPTARG} ;;
+            i) ind=${OPTARG} ;;
+            \?) echo "Invalid option: -${OPTARG}" >&2 ;;
+        esac
+    done
+    shift $((OPTIND -1))
+
+    local text=$1
+    [ -z "$text" ] && text=$(cat /dev/stdin)
+
+    if [ -n "$text" ]; then
+        [ $ind -gt 0 ] && text=$(sed "s/^/$(perl -e "print ' ' x $ind")/" <<< "$text")
+        [ -n "$text" ] && echo -e "${textColor[$color]}${text}${textColor[reset]}"
+    fi
+}
+
