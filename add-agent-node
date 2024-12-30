@@ -4,6 +4,6 @@ source helpers
 first_node=$1
 agent_node=$2
 
-echoci -c blue -d "Installing agent node $agent_node"
+echoci -c cyan -d "Installing agent node $agent_node"
 
 ssh $agent_node "curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL="latest" K3S_URL=https://$first_node:6443 K3S_TOKEN='$(ssh $first_node sudo cat /var/lib/rancher/k3s/server/node-token)' sh -"

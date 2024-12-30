@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 source helpers
-echoci -c blue -d "Building haproxy config"
+echoci -c cyan -d "Building haproxy config"
 
 cp haproxy.cfg.template haproxy.cfg
 

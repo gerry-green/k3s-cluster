@@ -4,7 +4,7 @@ source helpers
 first_node=$1
 node=$2
 
-echoci -c blue -d "Installing master node $node"
+echoci -c cyan -d "Installing master node $node"
 
 scp control-plane-config.yaml $node:
 ssh $node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /etc/rancher/k3s/config.yaml'

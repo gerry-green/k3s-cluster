@@ -21,14 +21,14 @@ yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].n
 # install cilium - requires the cilium CLI installed locally
 
 [ -x "$(command -v cilium)" ] || {
-    echoci -c red -d "cilium CLI not found - please install it"
+    echoci -c red -d "Cilium CLI not found - please install it"
     exit 1
 }
 
 cilium install --version 1.16.5 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding to add the remaining control plane nodes
-echoci -c cyan -d "waiting for coredns to start"
+echoci -c cyan -d "Waiting for coredns to start"
 
 max_retries=20
 retry_count=0
@@ -37,19 +37,19 @@ while true; do
     [ "$(kubectl -n kube-system get po -l k8s-app=kube-dns -o json | jq -r '.items[]|.status.phase')" = "Running" ] && break
     retry_count=$(($retry_count + 1))
     [ $retry_count -gt $max_retries ] && {
-        echoci -c red -d "coredns is not running - stopping build";
+        echoci -c red -d "Coredns is not running - stopping build";
         exit 1;
     }
-    echoci -c yellow -d "coredns not running yet - waiting $retry_interval seconds"
+    echoci -c yellow -d "Coredns not running yet - waiting $retry_interval seconds"
     sleep $retry_interval
 done
 
-echoci -c green -d "first node $first_node is up!"
+echoci -c green -d "First node $first_node is up!"
 
 # Install the remaining control-plane nodes one at a time
 for node in "${master_nodes[@]}"; do
     ./add-control-plane-node $first_node $node || {
-        echoci -c red -d "failed to install control plane node $node"
+        echoci -c red -d "Failed to install control plane node $node"
         exit 1
     }
 
@@ -59,17 +59,17 @@ for node in "${master_nodes[@]}"; do
     while true; do
         node_ready=$(kubectl get node $node -o json | jq -r '.status.conditions[]|select(.type|match("Ready")).status')
         [ "$node_ready" = "True" ] && {
-            echoci -c green -d "node $node is ready"
+            echoci -c green -d "Node $node is ready"
             break
         }
 
         retry_count=$(($retry_count + 1))
         [ $retry_count -gt $max_retries ] && {
-            echoci -c red -d "node $node did not start in time - stopping build";
+            echoci -c red -d "Node $node did not start in time - stopping build";
             exit 1;
         }
 
-        echoci -c yellow -d "node $node not ready yet - waiting $retry_interval seconds"
+        echoci -c yellow -d "Node $node not ready yet - waiting $retry_interval seconds"
         sleep $retry_interval
     done
 done
@@ -105,17 +105,17 @@ retry_interval=15
 while true; do
     ingress_ready_count=$(kubectl get po -n ingress-nginx -o json | jq -r '.items[]|.status.phase' | grep -c Running)
     [ "$ingress_ready_count" -eq ${#agent_nodes[@]} ] && {
-        echoci -c green -d "all ingress pods are ready"
+        echoci -c green -d "All ingress pods are ready"
         break
     }
 
     retry_count=$(($retry_count + 1))
     [ $retry_count -gt $max_retries ] && {
-        echoci -c red -d "full set of ingress pods did not start in time - stopping build";
+        echoci -c red -d "Full set of ingress pods did not start in time - stopping build";
         exit 1;
     }
 
-    echoci -c yellow -d "$ingress_ready_count pods ready, expected ${#agent_nodes[@]} - waiting $retry_interval seconds"
+    echoci -c yellow -d "Only $ingress_ready_count pods ready, expected ${#agent_nodes[@]} - waiting $retry_interval seconds"
     sleep $retry_interval
 done
 
