@@ -8,7 +8,7 @@ echo "$(date +"%Y-%m-%d %H:%M:%S"): installing master node $node"
 scp control-plane-config.yaml $node:
 ssh $node 'sudo mkdir -p /etc/rancher/k3s; sudo cp control-plane-config.yaml /etc/rancher/k3s/config.yaml'
 
-[ "$first_node" == "$node" ] || {
+[ "$first_node" = "$node" ] || {
     cluster_detail="K3S_URL=https://$first_node:6443 K3S_TOKEN='$(ssh $first_node sudo cat /var/lib/rancher/k3s/server/node-token)'"
 }
 

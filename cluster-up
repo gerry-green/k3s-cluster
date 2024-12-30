@@ -24,7 +24,7 @@ yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].n
     exit 1
 }
 
-cilium install --version 1.16.4 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
+cilium install --version 1.16.5 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding to add the remaining control plane nodes
 echo "$(date +"%Y-%m-%d %H:%M:%S"): Waiting for coredns to start"
@@ -78,11 +78,6 @@ for node in "${agent_nodes[@]}"; do
     ./add-agent-node $first_node $node
 done
 
-# update the kube config to use the domain name now that all control plane nodes are up
-# temporarily disabling this until cluster is stable and we can rebuild haproxy
-# sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
-# copy back to the first master node so other clients can grab latest with mods
-scp ~/.kube/config $first_node:.kube/
 
 # create the cert manager namespace early so we can pre-load the cloudflare secret (the other manifests will create their own namespaces)
 cat <<EOF | kubectl apply -f -
@@ -99,5 +94,43 @@ ssh $first_node 'mkdir -p manifests'
 scp manifests/* $first_node:manifests/
 ssh $first_node sudo cp manifests/* /var/lib/rancher/k3s/server/manifests
 
-#todo: add a check to ensure ingress-nginx is running before proceeding
+# wait for the ingress-nginx pods to start - this affirms that all workers are ready so we can continue with longhorn prep
 echo "$(date +"%Y-%m-%d %H:%M:%S"): Waiting for ingress-nginx to start"
+
+max_retries=30
+retry_count=0
+retry_interval=15
+while true; do
+    ingress_ready_count=$(kubectl get po -n ingress-nginx -o json | jq -r '.items[]|.status.phase' | grep -c Running)
+    [ "$ingress_ready_count" -eq ${#agent_nodes[@]} ] && {
+        echo "all ingress pods are ready"
+        break
+    }
+
+    retry_count=$(($retry_count + 1))
+    [ $retry_count -gt $max_retries ] && {
+        echo "$(date +"%Y-%m-%d %H:%M:%S"): full set of ingress pods did not start in time - stopping build";
+        exit 1;
+    }
+
+    echo "$(date +"%Y-%m-%d %H:%M:%S"): $ingress_ready_count pods ready, expected ${#agent_nodes[@]} - waiting $retry_interval seconds"
+    sleep $retry_interval
+done
+
+# update the kube config to use the domain name
+sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
+# copy back to the first master node so other clients can grab latest with mods
+scp ~/.kube/config $first_node:.kube/
+
+# rebuild the haproxy config to capture any IP address change on the new nodes
+./build-haproxy-config
+
+# configure nodes with longhorn prequisites
+longhornctl --kube-config ~/.kube/config install preflight
+longhornctl --kube-config ~/.kube/config check preflight
+
+# install longhorn
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/deploy/longhorn.yaml
+
+# install the cloudnative-pg operator
+kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.2.yaml
