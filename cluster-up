@@ -79,14 +79,8 @@ for node in "${agent_nodes[@]}"; do
     ./add-agent-node $first_node $node
 done
 
-
 # create the cert manager namespace early so we can pre-load the cloudflare secret (the other manifests will create their own namespaces)
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: cert-manager
-EOF
+kubectl create ns cert-manager --dry-run=client -o yaml | kubectl apply -f -
 
 ./create-cloudflare-secret | kubectl apply -f -
 echoci -c cyan -d "deploying manifests for remaining components"
