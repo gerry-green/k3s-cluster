@@ -1,0 +1,10 @@
+#!/usr/bin/bash
+
+# remove any existing copy of the harbor helm chart
+rm -rf harbor
+
+helm repo add --force-update harbor https://helm.goharbor.io
+
+helm fetch harbor/harbor --untar
+
+helm install harbor harbor/ --values values-g2dev-net.yaml --create-namespace --namespace harbor

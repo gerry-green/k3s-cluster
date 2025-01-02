@@ -1,0 +1,11 @@
+# overrides for the values in the default harbor chart
+
+expose:
+  tls:
+    # the default cert on the ingress controller is a wildcard for *.g2dev.net
+    certSource: none
+  ingress:
+    hosts:
+      core: harbor.g2dev.net
+    className: nginx
+externalURL: https://harbor.g2dev.net
