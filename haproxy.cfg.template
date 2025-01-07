@@ -65,3 +65,14 @@ backend https_backend
 	mode tcp
 	balance roundrobin
 #	HTTPS_SERVERS_GO_HERE
+
+frontend postgres_frontend
+	bind *:5432
+	mode tcp
+	option tcplog
+	use_backend postgres_backend
+
+backend postgres_backend
+	mode tcp
+	balance roundrobin
+#	POSTGRES_SERVERS_GO_HERE

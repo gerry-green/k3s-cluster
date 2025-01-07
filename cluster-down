@@ -1,6 +1,6 @@
 #!/bin/bash
 
-agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir" "cmdrcody" "wrecker" "elrond")
+agent_nodes=("elendil" "aragorn" "isildur" "faramir" "boromir" "cmdrcody" "wrecker")
 master_nodes=("crosshair" "tech" "hunter")
 
 for node in "${agent_nodes[@]}"; do
