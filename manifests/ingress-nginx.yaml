@@ -890,7 +890,7 @@ spec:
     ## Ref: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/exposing-tcp-udp-services.md
     ##
     tcp:
-      32432: "cnpg-system/minas-tirith-rw:5432"
+      5432: "cnpg-system/minas-tirith-rw:5432"
 
     # -- UDP service key-value pairs
     ## Ref: https://github.com/kubernetes/ingress-nginx/blob/main/docs/user-guide/exposing-tcp-udp-services.md
