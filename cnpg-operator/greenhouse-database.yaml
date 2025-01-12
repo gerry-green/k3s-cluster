@@ -7,5 +7,16 @@ spec:
   instances: 3
   primaryUpdateStrategy: unsupervised
 
+  superuserSecret:
+    name: superuser-secret
+  enableSuperuserAccess: true
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret:
+        name: app-secret
+
   storage:
     size: 10Gi
