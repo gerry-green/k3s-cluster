@@ -1,6 +1,16 @@
 #!/bin/bash
 source helpers
 
+# check dependencies
+for tool in kubectl jq yq cilium longhornctl get-secret; do
+    [ -x "$(command -v $tool)" ] || {
+        echoci -c red -d "Error: $tool not found - please install it"
+        fail=true
+    }
+done
+
+[ -z "$fail" ] || { echoci -c red "Error: Process stopped - one or more dependencies are missing"; exit 1; }
+
 mkdir -p ~/.kube
 
 first_node="hunter"
@@ -18,14 +28,9 @@ scp $first_node:.kube/config ~/.kube/config
 # this is pinned to the first master node until the remaining control plane nodes are live
 yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].name = "middle-earth"|.contexts[0].name = "middle-earth"|.contexts[0].context.cluster = "middle-earth"|.current-context = "middle-earth"' ~/.kube/config
 
-# install cilium - requires the cilium CLI installed locally
+# install cilium
 
-[ -x "$(command -v cilium)" ] || {
-    echoci -c red -d "Cilium CLI not found - please install it"
-    exit 1
-}
-
-cilium install --version 1.16.5 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
+cilium install --version 1.16.6 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding to add the remaining control plane nodes
 echoci -c cyan -d "Waiting for coredns to start"
@@ -121,10 +126,10 @@ longhornctl --kube-config ~/.kube/config install preflight
 longhornctl --kube-config ~/.kube/config check preflight
 
 # install longhorn
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.7.2/deploy/longhorn.yaml
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.8.0/deploy/longhorn.yaml
 
 # install the cloudnative-pg operator
-kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.24/releases/cnpg-1.24.2.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.25/releases/cnpg-1.25.0.yaml
 
 # update the kube config to use the domain name
 sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
