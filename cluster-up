@@ -128,10 +128,10 @@ longhornctl --kube-config ~/.kube/config install preflight
 longhornctl --kube-config ~/.kube/config check preflight
 
 # install longhorn
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.8.0/deploy/longhorn.yaml
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.8.2/deploy/longhorn.yaml
 
 # install the cloudnative-pg operator
-kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.25/releases/cnpg-1.25.0.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
 
 # update the kube config to use the domain name
 sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
