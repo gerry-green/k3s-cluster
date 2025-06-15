@@ -69,6 +69,8 @@ backend https_backend
 frontend postgres_frontend
 	bind *:5432
 	mode tcp
+	timeout client 1800s
+	timeout server 1800s
 	option tcplog
 	use_backend postgres_backend
 

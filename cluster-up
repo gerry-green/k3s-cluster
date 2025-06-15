@@ -8,6 +8,8 @@ for tool in kubectl jq yq cilium longhornctl get-secret; do
         fail=true
     }
 done
+# need to check that peregrin is running to install haproxy
+# need to check that elrond is running to serve up secrets
 
 [ -z "$fail" ] || { echoci -c red "Error: Process stopped - one or more dependencies are missing"; exit 1; }
 
@@ -30,7 +32,7 @@ yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].n
 
 # install cilium
 
-cilium install --version 1.16.6 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
+cilium install --version 1.17.4 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding to add the remaining control plane nodes
 echoci -c cyan -d "Waiting for coredns to start"

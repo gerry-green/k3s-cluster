@@ -56,7 +56,9 @@ spec:
             http: 80
             https: 443
         # -- Will add custom configuration options to Nginx https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/configmap/
-        config: {}
+        config:
+          proxy-read-timeout: "1800"
+          proxy-send-timeout: "1800"
         # -- Annotations to be added to the controller config configuration configmap.
         configAnnotations: {}
         # -- Will add custom headers before sending traffic to backends according to https://github.com/kubernetes/ingress-nginx/tree/main/docs/examples/customization/custom-headers
@@ -158,7 +160,9 @@ spec:
             # -- Allows customization of the tcp-services-configmap; defaults to $(POD_NAMESPACE)
             configMapNamespace: ""
             # -- Annotations to be added to the tcp config configmap
-            annotations: {}
+            annotations:
+              nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+              nginx.ingress.kubernetes.io/proxy-send-timeout: "1800"
         udp:
             # -- Allows customization of the udp-services-configmap; defaults to $(POD_NAMESPACE)
             configMapNamespace: ""
