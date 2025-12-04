@@ -32,7 +32,7 @@ yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].n
 
 # install cilium
 
-cilium install --version 1.17.4 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
+cilium install --version 1.18.4 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding to add the remaining control plane nodes
 echoci -c cyan -d "Waiting for coredns to start"
@@ -127,11 +127,15 @@ done
 longhornctl --kube-config ~/.kube/config install preflight
 longhornctl --kube-config ~/.kube/config check preflight
 
-# install longhorn
-kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.8.2/deploy/longhorn.yaml
+# install longhorn (with hotfix for v1.10.1 - can be removed when we move to v1.10.2+)
+curl https://raw.githubusercontent.com/longhorn/longhorn/v1.10.1/deploy/longhorn.yaml | sed '/longhorn-manager:v1.10.1/s/$/-hotfix-1/;/upgrade-version-check/d' longhorn.tmp.yaml | kubectl apply -f -
 
 # install the cloudnative-pg operator
-kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.26/releases/cnpg-1.26.0.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.27/releases/cnpg-1.27.1.yaml
+
+cd harbor
+./install-harbor
+cd ..
 
 # update the kube config to use the domain name
 sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
