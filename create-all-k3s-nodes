@@ -1,0 +1,10 @@
+#!/usr/bin/bash
+
+ssh pve "sudo qm clone 1001 1100 --name hunter; sudo qm start 1100"
+ssh pve 'export vmid=1101; for host in elendil boromir faramir durin; do sudo qm clone 1002 $vmid --name $host; sudo qm set $vmid --memory 8192; sudo qm start $vmid; vmid=$(($vmid+1)); done'
+
+ssh pve2 "sudo qm clone 2001 2100 --name wrecker; sudo qm start 2100"
+ssh pve2 'export vmid=2101; for host in aragorn isildur tech; do sudo qm clone 2002 $vmid --name $host; sudo qm set $vmid --memory 8192; sudo qm start $vmid; vmid=$(($vmid+1)); done'
+
+ssh pve3 "sudo qm clone 3001 3100 --name crosshair; sudo qm start 3100"
+ssh pve3 'export vmid=3101; for host in cmdrcody; do sudo qm clone 3002 $vmid --name $host; sudo qm set $vmid --memory 8192; sudo qm start $vmid; vmid=$(($vmid+1)); done'

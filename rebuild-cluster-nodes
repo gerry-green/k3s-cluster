@@ -1,0 +1,13 @@
+#!/bin/bash
+
+./destroy-all-k3s-nodes
+sleep 30
+./create-all-k3s-nodes
+
+echo "Waiting 2 minutes for nodes to settle"
+sleep 120
+
+for host in hunter elendil boromir faramir durin wrecker aragorn isildur tech crosshair cmdrcody; do
+  ~/.ca/add-host $host
+done
+

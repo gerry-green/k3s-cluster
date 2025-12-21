@@ -89,6 +89,9 @@ done
 # create the cert manager namespace early so we can pre-load the cloudflare secret (the other manifests will create their own namespaces)
 kubectl create ns cert-manager --dry-run=client -o yaml | kubectl apply -f -
 
+# This command is used to update the cert manager manifest directly from the helm chart - this will become part of the main script.
+# helm template cert-manager oci://quay.io/jetstack/charts/cert-manager:v1.19.2 -n cert-manager --set crds.enabled=true > ../manifests/cert-manager.yaml
+
 ./create-cloudflare-secret | kubectl apply -f -
 echoci -c cyan -d "deploying manifests for remaining components"
 
@@ -124,13 +127,55 @@ done
 ./build-haproxy-config
 
 # configure nodes with longhorn prequisites
-longhornctl --kube-config ~/.kube/config install preflight
-longhornctl --kube-config ~/.kube/config check preflight
+echoci -c cyan -d "Configuring nodes for longhorn"
+kubectl create ns longhorn-system --dry-run=client -o yaml | kubectl apply -f -
+longhornctl install preflight
+longhornctl check preflight
 
 # install longhorn (with hotfix for v1.10.1 - can be removed when we move to v1.10.2+)
-curl https://raw.githubusercontent.com/longhorn/longhorn/v1.10.1/deploy/longhorn.yaml | sed '/longhorn-manager:v1.10.1/s/$/-hotfix-1/;/upgrade-version-check/d' longhorn.tmp.yaml | kubectl apply -f -
+echoci -c cyan -d "Installing longhorn"
+curl https://raw.githubusercontent.com/longhorn/longhorn/v1.10.1/deploy/longhorn.yaml | sed -E 's/(longhorn-manager:v1.10.1)/\1-hotfix-1/;/upgrade-version-check/d' | kubectl apply -f -
+
+# wait for longhorn to be running
+echoci -c cyan -d "Waiting for longhorn to start"
+# wait for csi pods to start - these are last and tend to be longest
+max_retries=30
+retry_count=0
+retry_interval=15
+while true; do
+    longhorn_csi_pod_count=$(kubectl get po -n longhorn-system | grep -c longhorn-csi)
+    [ "$longhorn_csi_pod_count" -gt 0 ] && break
+
+    retry_count=$(($retry_count + 1))
+    [ $retry_count -gt $max_retries ] && {
+        echoci -c red -d "No longhorn csi pods observeed yet - stopping build";
+        exit 1;
+    }
+
+    echoci -c yellow -d "no longhorn csi plugin pods observed yet - waiting $retry_interval seconds"
+    sleep $retry_interval
+done
+
+retry_count=0
+while true; do
+    longhorn_notready_count=$(kubectl get po -n longhorn-system -o json | jq -r '.items[]|.status.phase' | grep -cv Running)
+    [ "$longhorn_notready_count" -eq 0 ] && {
+        echoci -c green -d "All longhorn pods are ready"
+        break
+    }
+
+    retry_count=$(($retry_count + 1))
+    [ $retry_count -gt $max_retries ] && {
+        echoci -c red -d "Full set of longhorn pods did not start in time - stopping build";
+        exit 1;
+    }
+
+    echoci -c yellow -d "$longhorn_notready_count pods not ready, expected 0 - waiting $retry_interval seconds"
+    sleep $retry_interval
+done
 
 # install the cloudnative-pg operator
+echoci -c cyan -d "Installing cloudnative-pg operator"
 kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.27/releases/cnpg-1.27.1.yaml
 
 cd harbor
@@ -141,4 +186,3 @@ cd ..
 sed -i "s/$first_node/middle-earth.g2dev.net/" ~/.kube/config
 # copy back to the first master node so other clients can grab latest with mods
 scp ~/.kube/config $first_node:.kube/
-

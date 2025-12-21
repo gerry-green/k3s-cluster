@@ -1,0 +1,5 @@
+#!/usr/bin/bash
+
+ssh pve 'for host in $(sudo qm list | grep -P "^\s+11\d\d" | awk "{print \$1}"); do sudo qm stop $host; sudo qm destroy $host; done'
+ssh pve2 'for host in $(sudo qm list | grep -P "^\s+21\d\d" | awk "{print \$1}"); do sudo qm stop $host; sudo qm destroy $host; done'
+ssh pve3 'for host in $(sudo qm list | grep -P "^\s+31\d\d" | awk "{print \$1}"); do sudo qm stop $host; sudo qm destroy $host; done'

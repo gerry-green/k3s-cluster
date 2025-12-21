@@ -7,6 +7,10 @@ spec:
   instances: 3
   primaryUpdateStrategy: unsupervised
 
+  postgresql:
+    parameters:
+      tcp_keepalives_idle: '30'
+ 
   superuserSecret:
     name: superuser-secret
   enableSuperuserAccess: true
