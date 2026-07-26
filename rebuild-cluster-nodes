@@ -4,8 +4,8 @@
 sleep 30
 ./create-all-k3s-nodes
 
-echo "Waiting 2 minutes for nodes to settle"
-sleep 120
+echo "Waiting 5 minutes for nodes to settle"
+sleep 300
 
 for host in hunter elendil boromir faramir durin wrecker aragorn isildur tech crosshair cmdrcody; do
   ~/.ca/add-host $host

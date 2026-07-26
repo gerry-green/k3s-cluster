@@ -32,7 +32,7 @@ yq -i '.clusters[0].cluster.server = "https://'$first_node':6443"|.clusters[0].n
 
 # install cilium
 
-cilium install --version 1.18.4 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
+cilium install --version 1.19.6 --set=ipam.operator.clusterPoolIPv4PodCIDRList="10.42.0.0/16"
 
 # check that coredns is running before proceeding to add the remaining control plane nodes
 echoci -c cyan -d "Waiting for coredns to start"
@@ -132,16 +132,16 @@ kubectl create ns longhorn-system --dry-run=client -o yaml | kubectl apply -f -
 longhornctl install preflight
 longhornctl check preflight
 
-# install longhorn (with hotfix for v1.10.1 - can be removed when we move to v1.10.2+)
+# install longhorn
 echoci -c cyan -d "Installing longhorn"
-curl https://raw.githubusercontent.com/longhorn/longhorn/v1.10.1/deploy/longhorn.yaml | sed -E 's/(longhorn-manager:v1.10.1)/\1-hotfix-1/;/upgrade-version-check/d' | kubectl apply -f -
+curl https://raw.githubusercontent.com/longhorn/longhorn/v1.12.0/deploy/longhorn.yaml | kubectl apply -f -
 
 # wait for longhorn to be running
 echoci -c cyan -d "Waiting for longhorn to start"
 # wait for csi pods to start - these are last and tend to be longest
 max_retries=30
 retry_count=0
-retry_interval=15
+retry_interval=30
 while true; do
     longhorn_csi_pod_count=$(kubectl get po -n longhorn-system | grep -c longhorn-csi)
     [ "$longhorn_csi_pod_count" -gt 0 ] && break
