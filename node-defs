@@ -1,0 +1,3 @@
+first_node="hunter"
+master_nodes=("wrecker")
+agent_nodes=("elendil" "aragorn" "isildur" "durin" "faramir" "boromir" "tech")

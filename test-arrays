@@ -1,0 +1,9 @@
+#!/bin/bash
+
+source node-defs
+all_nodes=( "$first_node" "${master_nodes[@]}" "${agent_nodes[@]}" )
+
+for node in "${all_nodes[@]}"; do
+    echo "Destroying node $node"
+    ./destroy-node $node
+done
