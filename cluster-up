@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source helpers
 
 # check dependencies
@@ -8,19 +8,24 @@ for tool in kubectl jq yq cilium longhornctl get-secret; do
         fail=true
     }
 done
-# need to check that peregrin is running to install haproxy
-# need to check that elrond is running to serve up secrets
 
 [ -z "$fail" ] || { echoci -c red "Error: Process stopped - one or more dependencies are missing"; exit 1; }
 
 mkdir -p ~/.kube
+source ./node-defs
 
-first_node="hunter"
-# master_nodes=("wrecker")
-# agent_nodes=("elendil" "aragorn" "isildur" "durin" "faramir" "boromir" "tech")
+echo "First Node: $first_node"
+echo 'Master Nodes:'
+for node in "${master_nodes[@]}"; do
+    echo "    $node"
+done
 
-master_nodes=("wrecker" "crosshair")
-agent_nodes=("elendil" "aragorn" "isildur" "durin" "faramir" "boromir" "cmdrcody" "tech")
+echo -e '\nAgent Nodes'
+for node in "${agent_nodes[@]}"; do
+    echo "    $node"
+done
+
+exit
 
 # install the first master / control-plane node
 
